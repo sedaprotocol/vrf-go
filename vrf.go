@@ -4,11 +4,7 @@ import (
 	"crypto/elliptic"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"math/big"
-
-	// copied from "golang.org/x/crypto/ed25519/internal/edwards25519"
-	// "golang.org/x/crypto/ed25519"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/ecdsa"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
@@ -124,7 +120,6 @@ func (v VRFStruct) EncodeToCurveTai(encodeToCurveSalt, alpha []byte) (*AffinePoi
 	for i := 0; i <= 255; i++ {
 		hashInput[ctrPosition] = byte(i)
 		hashString := sha256.Sum256(hashInput) // TODO use v's hasher
-		fmt.Printf("hashString: %v", hashString)
 		point, err := v.try_hash_to_point(hashString)
 		if err == nil {
 			pointOpt = point
@@ -157,6 +152,6 @@ func (v VRFStruct) try_hash_to_point(data [32]byte) (*AffinePoint, error) {
 
 func (v VRFStruct) point_from_bytes(data []byte) (*AffinePoint, error) {
 	ap := new(AffinePoint)
-	ap.X, ap.Y = elliptic.UnmarshalCompressed(v.Curve, data)
+	ap.X, ap.Y = UnmarshalCompressed(data)
 	return ap, nil
 }
