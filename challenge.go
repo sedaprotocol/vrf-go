@@ -1,7 +1,6 @@
 package vrf_secp256k1
 
 import (
-	"crypto/sha256"
 	"errors"
 )
 
@@ -27,7 +26,7 @@ func (v VRFStruct) ChallengeGeneration(points []byte, truncateLen int) ([]byte, 
 	pointBytes = append(pointBytes, challengeGenerationDomainSeparatorBack)
 
 	// Step 6: c_string = Hash(str)
-	c_string := sha256.Sum256(pointBytes) // TO-DO use v's hasher
+	c_string := v.Hash(pointBytes)
 
 	// Step 7: truncated_c_string = c_string[0]...c_string[cLen-1]
 	if truncateLen > len(c_string) {

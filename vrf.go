@@ -2,33 +2,11 @@ package vrf_secp256k1
 
 import (
 	"crypto/elliptic"
-	"crypto/sha256"
 	"errors"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/ecdsa"
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 )
-
-type VRFStruct struct {
-	// Elliptic Curve
-	Curve *secp256k1.BitCurve
-	// Hash Function
-	// Hasher Hasher // TO-DO SHA256 for now
-	/// ECVRF suite string as specific by RFC9381
-	SuiteID uint8
-	CLen    int // challenge length https://datatracker.ietf.org/doc/html/rfc9381#section-5.5-2.3
-	// TO-DO: check if always 16??
-}
-
-func NewVRF(suiteID uint8) VRFStruct {
-	return VRFStruct{
-		Curve: secp256k1.S256(),
-		// Hasher: , // TO-DO
-		SuiteID: suiteID,
-		CLen:    16,
-	}
-}
 
 // / Generates a VRF proof from a secret key and message.
 // / Spec: `ECVRF_prove` function (section 5.1).
@@ -51,7 +29,7 @@ func (v VRFStruct) Prove(secret_key []byte, alpha []byte) (pi []byte, err error)
 	gamma_point_bytes := elliptic.MarshalCompressed(v.Curve, gpx, gpy)
 
 	// Step 5: nonce (k generation)
-	digest := sha256.Sum256(h_point_bytes) // TODO use v's hasher
+	digest := v.Hash(h_point_bytes)
 	k := v.GenerateNonce(secret_key, digest)
 
 	// Step 6: c = ECVRF_challenge_generation (Y, H, Gamma, U, V)
@@ -119,7 +97,7 @@ func (v VRFStruct) EncodeToCurveTai(encodeToCurveSalt, alpha []byte) (*AffinePoi
 	ctrPosition := len(hashInput) - 2
 	for i := 0; i <= 255; i++ {
 		hashInput[ctrPosition] = byte(i)
-		hashString := sha256.Sum256(hashInput) // TODO use v's hasher
+		hashString := v.Hash(hashInput)
 		point, err := v.try_hash_to_point(hashString)
 		if err == nil {
 			pointOpt = point
@@ -144,9 +122,8 @@ func (v VRFStruct) EncodeToCurveTai(encodeToCurveSalt, alpha []byte) (*AffinePoi
 	return pointOpt, nil
 }
 
-// TO-DO: [32]byte -> []byte ??
-func (v VRFStruct) try_hash_to_point(data [32]byte) (*AffinePoint, error) {
-	concatenatedData := append([]byte{0x02}, data[:]...)
+func (v VRFStruct) try_hash_to_point(data []byte) (*AffinePoint, error) {
+	concatenatedData := append([]byte{0x02}, data...)
 	return v.point_from_bytes(concatenatedData)
 }
 
