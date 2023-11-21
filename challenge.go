@@ -22,8 +22,7 @@ func (v VRFStruct) DecodeProof(pi []byte) (gamma []byte, cScalar []byte, sScalar
 	// TO-DO: Step 5: If Gamma = "INVALID", output "INVALID" and stop
 
 	// C scalar (needs to be padded with leading zeroes)
-	CFieldBytesSize := 32 // TO-DO
-	cScalar = make([]byte, CFieldBytesSize-v.CLen)
+	cScalar = make([]byte, v.PtLen-v.CLen) // TO-DO PtLen vs CFieldBytesSize
 	cScalar = append(cScalar, pi[gammaOct:gammaOct+v.CLen]...)
 
 	// S scalar

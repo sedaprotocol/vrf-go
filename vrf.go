@@ -2,12 +2,9 @@ package vrf_secp256k1
 
 import (
 	"bytes"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"math/big"
-
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/ecdsa"
 )
 
 // Verifies the provided VRF proof and computes the VRF hash output beta.
@@ -15,11 +12,11 @@ import (
 func (v VRFStruct) Verify(public_key, pi, alpha []byte) ([]byte, error) {
 	// // Step 1-2: Y = string_to_point(PK_string)
 	// let public_key_point = C::ProjectivePoint::from(self.point_from_bytes(public_key)?);
-	public_key_point, err := UnmarshalCompressed(public_key)
+	public_key_point, err := v.UnmarshalCompressed(public_key)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(public_key_point)
+
 	// TO-DO involves cofactor
 	// // Step 3: If validate_key, run ECVRF_validate_key(Y) (Section 5.4.5)
 	// // TODO: Check step 3 again
@@ -32,7 +29,7 @@ func (v VRFStruct) Verify(public_key, pi, alpha []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	gamma_point, err := UnmarshalCompressed(gamma)
+	gamma_point, err := v.UnmarshalCompressed(gamma)
 	if err != nil {
 		return nil, err
 	}
@@ -45,15 +42,14 @@ func (v VRFStruct) Verify(public_key, pi, alpha []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	h_point_bytes := elliptic.MarshalCompressed(v.Curve, h_point.X, h_point.Y)
+	h_point_bytes := v.MarshalCompressed(h_point.X, h_point.Y)
 
 	// Step 8: U = s*B - c*Y
 	// let u_point = C::ProjectivePoint::mul_by_generator(&s_scalar) - public_key_point * c_scalar;
 	ax, ay := v.Curve.ScalarBaseMult(s) // public_key_point
 	bx, by := v.Curve.ScalarMult(public_key_point.X, public_key_point.Y, c)
 	ux, uy := v.Curve.Add(ax, ay, bx, new(big.Int).Neg(by))
-	u_point_bytes := elliptic.MarshalCompressed(v.Curve, ux, uy)
-	fmt.Println(u_point_bytes)
+	u_point_bytes := v.MarshalCompressed(ux, uy)
 
 	// Step 9: V = s*H - c*Gamma
 	// let v_point = h_point * s_scalar - gamma_point * c_scalar;
@@ -61,8 +57,7 @@ func (v VRFStruct) Verify(public_key, pi, alpha []byte) ([]byte, error) {
 	cx, cy := v.Curve.ScalarMult(h_point.X, h_point.Y, s)
 	dx, dy := v.Curve.ScalarMult(gamma_point.X, gamma_point.Y, c)
 	vx, vy := v.Curve.Add(cx, cy, dx, new(big.Int).Neg(dy))
-	v_point_bytes := elliptic.MarshalCompressed(v.Curve, vx, vy)
-	fmt.Println(v_point_bytes)
+	v_point_bytes := v.MarshalCompressed(vx, vy)
 
 	// Step 10: c' = ECVRF_challenge_generation(Y, H, Gamma, U, V)
 	var input []byte
@@ -77,8 +72,7 @@ func (v VRFStruct) Verify(public_key, pi, alpha []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	CFieldBytesSize := 32 // TO-DO
-	paddingSize := CFieldBytesSize - v.CLen
+	paddingSize := v.PtLen - v.CLen // TO-DO PtLen vs CFieldBytesSize
 	padded_derived_c := make([]byte, paddingSize)
 	padded_derived_c = append(padded_derived_c, derived_c...)
 	if !bytes.Equal(padded_derived_c, c) {
@@ -93,20 +87,18 @@ func (v VRFStruct) Verify(public_key, pi, alpha []byte) ([]byte, error) {
 func (v VRFStruct) Prove(secret_key, alpha []byte) ([]byte, error) {
 	// Step 1: derive public key from secret key as `Y = x * B`
 	x1, y1 := v.Curve.ScalarBaseMult(secret_key) // public_key_point
-	public_key_bytes := elliptic.MarshalCompressed(v.Curve, x1, y1)
-
-	// new(gnark.G1Affine).ScalarMultiplicationBase(ecdsa.HashToInt(secret_key))
+	public_key_bytes := v.MarshalCompressed(x1, y1)
 
 	// Step 2: Encode to curve (using TAI)
 	h_point, err := v.EncodeToCurveTai(public_key_bytes, alpha)
 	if err != nil {
 		return nil, err
 	}
-	h_point_bytes := elliptic.MarshalCompressed(v.Curve, h_point.X, h_point.Y)
+	h_point_bytes := v.MarshalCompressed(h_point.X, h_point.Y)
 
 	// Step 4: Gamma = x * H
 	gpx, gpy := v.Curve.ScalarMult(h_point.X, h_point.Y, secret_key)
-	gamma_point_bytes := elliptic.MarshalCompressed(v.Curve, gpx, gpy)
+	gamma_point_bytes := v.MarshalCompressed(gpx, gpy)
 
 	// Step 5: nonce (k generation)
 	digest := v.Hash(h_point_bytes)
@@ -115,11 +107,11 @@ func (v VRFStruct) Prove(secret_key, alpha []byte) ([]byte, error) {
 	// Step 6: c = ECVRF_challenge_generation (Y, H, Gamma, U, V)
 	// U = k*B
 	ux, uy := v.Curve.ScalarBaseMult(k) // public_key_point
-	ubytes := elliptic.MarshalCompressed(v.Curve, ux, uy)
+	ubytes := v.MarshalCompressed(ux, uy)
 
 	// V = k*H
 	vx, vy := v.Curve.ScalarMult(h_point.X, h_point.Y, k)
-	vbytes := elliptic.MarshalCompressed(v.Curve, vx, vy)
+	vbytes := v.MarshalCompressed(vx, vy)
 
 	// Challenge generation (returns hash output truncated by `cLen`)
 	var input []byte
@@ -134,9 +126,12 @@ func (v VRFStruct) Prove(secret_key, alpha []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	k_scalar := ecdsa.HashToInt(k)
-	c_scalar := ecdsa.HashToInt(c_scalar_bytes)
-	sk_scalar := ecdsa.HashToInt(secret_key)
+	// k_scalar := ecdsa.HashToInt(k)
+	// c_scalar := ecdsa.HashToInt(c_scalar_bytes)
+	// sk_scalar := ecdsa.HashToInt(secret_key)
+	k_scalar := v.HashToInt(k)
+	c_scalar := v.HashToInt(c_scalar_bytes)
+	sk_scalar := v.HashToInt(secret_key)
 
 	// Step 7: s = (k + c*x) mod q
 	s_scalar := new(big.Int)
@@ -206,7 +201,7 @@ func (v VRFStruct) EncodeToCurveTai(encodeToCurveSalt, alpha []byte) (*AffinePoi
 // Spec: `interpret_hash_value_as_a_point(s) = sring_to_point(0x02 || s)` (section 5.5).
 func (v VRFStruct) try_hash_to_point(data []byte) (*AffinePoint, error) {
 	concatenatedData := append([]byte{0x02}, data...)
-	return UnmarshalCompressed(concatenatedData)
+	return v.UnmarshalCompressed(concatenatedData)
 }
 
 func (v VRFStruct) gamma_to_hash(point *AffinePoint) ([]byte, error) {

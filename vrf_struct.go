@@ -3,6 +3,7 @@ package vrf_secp256k1
 import (
 	"crypto/sha256"
 	"hash"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 )
@@ -32,4 +33,23 @@ func (v VRFStruct) Hash(hashInput []byte) []byte {
 	hashString := v.hasher.Sum(nil)
 	v.hasher.Reset()
 	return hashString
+}
+
+// from https://go.dev/src/crypto/ecdsa/ecdsa_legacy.go
+// HashToInt converts a hash value to an integer. Per FIPS 186-4, Section 6.4,
+// we use the left-most bits of the hash to match the bit-length of the order of
+// the curve. This also performs Step 5 of SEC 1, Version 2.0, Section 4.1.3.
+func (v VRFStruct) HashToInt(hash []byte) *big.Int {
+	orderBits := v.Curve.Params().N.BitLen()
+	orderBytes := (orderBits + 7) / 8
+	if len(hash) > orderBytes {
+		hash = hash[:orderBytes]
+	}
+
+	ret := new(big.Int).SetBytes(hash)
+	excess := len(hash)*8 - orderBits
+	if excess > 0 {
+		ret.Rsh(ret, uint(excess))
+	}
+	return ret
 }

@@ -10,6 +10,37 @@ import (
 	vrf "github.com/sedaprotocol/vrf-go"
 )
 
+// from vrf-rs/src/tests/secp256k1_sha256_tai.rs decode_proof()
+func TestDecodeProof(t *testing.T) {
+	vrf := vrf.NewK256VRF(0xFE)
+	pi, err := hex.DecodeString("035b5c726e8c0e2c488a107c600578ee75cb702343c153cb1eb8dec77f4b5071b4a53f0a46f018bc2c56e58d383f2305e0975972c26feea0eb122fe7893c15af376b33edf7de17c6ea056d4d82de6bc02f")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gamma, c, s, err := vrf.DecodeProof(pi)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedGamma, err := hex.DecodeString("035b5c726e8c0e2c488a107c600578ee75cb702343c153cb1eb8dec77f4b5071b4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedC, err := hex.DecodeString("00000000000000000000000000000000a53f0a46f018bc2c56e58d383f2305e0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedS, err := hex.DecodeString("975972c26feea0eb122fe7893c15af376b33edf7de17c6ea056d4d82de6bc02f")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, expectedGamma, gamma)
+	assert.Equal(t, expectedC, c)
+	assert.Equal(t, expectedS, s)
+}
+
 // from vrf-rs/src/tests/secp256k1_sha256_tai.rs encode_to_curve_tai()
 func TestSecp256k1Sha256TaiEncodeToCurve2(t *testing.T) {
 	vrf := vrf.NewK256VRF(0xFE)
