@@ -4,6 +4,35 @@ import (
 	"errors"
 )
 
+// Decodes a VRF proof by extracting the gamma EC point, and parameters `c` and `s` as bytes.
+// Spec: `ECVRF_decode_proof` function in section 5.4.4.
+func (v VRFStruct) DecodeProof(pi []byte) (gamma []byte, cScalar []byte, sScalar []byte, err error) {
+	// Expected size of proof: len(pi) = len(gamma) + len(c) + len(s)
+	// len(s) = 2 * len(c), so len(pi) = len(gamma) + 3 * len(c)
+	gammaOct := v.PtLen + 1
+	if len(pi) != gammaOct+v.CLen*3 {
+		err = errors.New("invalid pi length")
+		return
+	}
+
+	// Gamma point
+	gamma = make([]byte, gammaOct)
+	copy(gamma, pi[0:gammaOct])
+
+	// TO-DO: Step 5: If Gamma = "INVALID", output "INVALID" and stop
+
+	// C scalar (needs to be padded with leading zeroes)
+	CFieldBytesSize := 32 // TO-DO
+	cScalar = make([]byte, CFieldBytesSize-v.CLen)
+	cScalar = append(cScalar, pi[gammaOct:gammaOct+v.CLen]...)
+
+	// S scalar
+	sScalar = make([]byte, len(pi)-gammaOct-v.CLen)
+	copy(sScalar, pi[gammaOct+v.CLen:])
+
+	return gamma, cScalar, sScalar, nil
+}
+
 func (v VRFStruct) ChallengeGeneration(points []byte, truncateLen int) ([]byte, error) {
 	// Step 1: challenge_generation_domain_separator_front = 0x02
 	const challengeGenerationDomainSeparatorFront byte = 0x02
@@ -28,7 +57,7 @@ func (v VRFStruct) ChallengeGeneration(points []byte, truncateLen int) ([]byte, 
 	// Step 6: c_string = Hash(str)
 	c_string := v.Hash(pointBytes)
 
-	// Step 7: truncated_c_string = c_string[0]...c_string[cLen-1]
+	// Step 7: truncated_c_string = c_string[0]...c_string[CLen-1]
 	if truncateLen > len(c_string) {
 		return nil, errors.New("truncate length exceeds hash length")
 	}
