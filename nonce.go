@@ -13,7 +13,7 @@ import (
 // TO-DO remove test?
 func (v VRFStruct) GenerateNonce(secret_key []byte, digest_msg []byte) []byte {
 	test := func(*big.Int) bool { return true }
-	return generateSecret(v.Curve.N, v.HashToInt(secret_key), sha256.New, digest_msg, test)
+	return generateSecret(v.N(), v.HashToInt(secret_key), sha256.New, digest_msg, test)
 }
 
 // q
