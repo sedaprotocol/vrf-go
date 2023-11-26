@@ -1,6 +1,6 @@
 module github.com/sedaprotocol/vrf-go
 
-go 1.21.1
+go 1.19
 
 require (
 	github.com/ethereum/go-ethereum v1.13.4
