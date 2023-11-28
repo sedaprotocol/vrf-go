@@ -2,12 +2,87 @@ package vrf_secp256k1_test
 
 import (
 	"encoding/hex"
+	"encoding/json"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	vrf "github.com/sedaprotocol/vrf-go"
 )
+
+// Struct to represent the JSON structure
+type Entry struct {
+	Hash    string `json:"hash"`
+	Message string `json:"message"`
+	Pi      string `json:"pi"`
+	Priv    string `json:"priv"`
+	Pub     string `json:"pub"`
+}
+
+func decodeEntry(t *testing.T, entry Entry) (beta, alpha, pi, privKey, pubKey []byte) {
+	var err error
+	beta, err = hex.DecodeString(entry.Hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alpha, err = hex.DecodeString(entry.Message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pi, err = hex.DecodeString(entry.Pi)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privKey, err = hex.DecodeString(entry.Priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubKey, err = hex.DecodeString(entry.Pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return
+}
+
+func TestProves(t *testing.T) {
+	testFile := "./ECVRF_SECP256K1_SHA256_TAI.json"
+	jsonData, err := os.ReadFile(testFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var entries []Entry
+	err = json.Unmarshal(jsonData, &entries)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, entry := range entries {
+		t.Logf("testing hash %s", entry.Hash)
+
+		t.Run(entry.Hash, func(t *testing.T) {
+			expectedBeta, alpha, expectedPi, privKey, pubKey := decodeEntry(t, entry)
+
+			vrf := vrf.NewK256VRF(0xFE)
+
+			pi, err := vrf.Prove(privKey, alpha)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			assert.Equal(t, expectedPi, pi)
+
+			beta, err := vrf.Verify(pubKey, pi, alpha)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			assert.Equal(t, expectedBeta, beta)
+		})
+	}
+}
 
 // from vrf-rs/src/tests/secp256k1_sha256_tai.rs prove()
 func TestProve(t *testing.T) {
