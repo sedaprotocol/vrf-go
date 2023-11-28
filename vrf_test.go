@@ -46,7 +46,7 @@ func decodeEntry(t *testing.T, entry Entry) (beta, alpha, pi, privKey, pubKey []
 	return
 }
 
-func TestProves(t *testing.T) {
+func TestProveVerify(t *testing.T) {
 	testFile := "./ECVRF_SECP256K1_SHA256_TAI.json"
 	jsonData, err := os.ReadFile(testFile)
 	if err != nil {
