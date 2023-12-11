@@ -6,6 +6,7 @@ import (
 	"hash"
 	"math/big"
 
+	secp2 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 )
 
@@ -25,14 +26,15 @@ type VRFStruct struct {
 	SuiteID uint8     // ECVRF suite string as specific by RFC9381
 	CLen    int       // Challenge length https://datatracker.ietf.org/doc/html/rfc9381#section-5.5-2.3
 	PtLen   int       // Length, in octets, of a point on E encoded as an octet string.
-	// TO-DO: check if always 16??
 }
 
-func NewK256VRF(suiteID uint8) VRFStruct {
+// NewK256VRF creates a new VRF Struct object with secp256k1 curve
+// and SHA256 hasher.
+func NewK256VRF() VRFStruct {
 	return VRFStruct{
 		curve:   secp256k1.S256(),
 		hasher:  sha256.New(),
-		SuiteID: suiteID,
+		SuiteID: 0xFE,
 		CLen:    16,
 		PtLen:   32,
 	}
@@ -41,6 +43,7 @@ func NewK256VRF(suiteID uint8) VRFStruct {
 func (v VRFStruct) N() *big.Int {
 	return v.curve.Params().N
 }
+
 func (v VRFStruct) Hash(hashInput []byte) []byte {
 	v.hasher.Write(hashInput)
 	hashString := v.hasher.Sum(nil)
@@ -95,21 +98,25 @@ func (v VRFStruct) ScalarMult(point *AffinePoint, scalar []byte) *AffinePoint {
 }
 
 func (v VRFStruct) ScalarMul(a, b []byte) []byte {
-	aInt := v.HashToInt(a)
-	bInt := v.HashToInt(b)
+	aScalar := new(secp2.ModNScalar)
+	aScalar.SetByteSlice(a)
 
-	result := new(big.Int)
-	result.Mul(aInt, bInt)
-	return result.Mod(result, v.N()).Bytes() // TO-DO Why modulo N not P?
+	bScalar := new(secp2.ModNScalar)
+	bScalar.SetByteSlice(b)
+
+	res := aScalar.Mul(bScalar).Bytes()
+	return res[:]
 }
 
 func (v VRFStruct) ScalarAdd(a, b []byte) []byte {
-	aInt := v.HashToInt(a)
-	bInt := v.HashToInt(b)
+	aScalar := new(secp2.ModNScalar)
+	aScalar.SetByteSlice(a)
 
-	result := new(big.Int)
-	result.Add(aInt, bInt)
-	return result.Mod(result, v.N()).Bytes() // TO-DO Why modulo N not P?
+	bScalar := new(secp2.ModNScalar)
+	bScalar.SetByteSlice(b)
+
+	res := aScalar.Add(bScalar).Bytes()
+	return res[:]
 }
 
 // UnmarshalCompressed parses an array of bytes in the 33-byte compressed

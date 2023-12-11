@@ -3,6 +3,7 @@ package vrf_secp256k1_test
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -65,7 +66,7 @@ func TestProveVerify(t *testing.T) {
 		t.Run(entry.Hash, func(t *testing.T) {
 			expectedBeta, alpha, expectedPi, privKey, pubKey := decodeEntry(t, entry)
 
-			vrf := vrf.NewK256VRF(0xFE)
+			vrf := vrf.NewK256VRF()
 
 			pi, err := vrf.Prove(privKey, alpha)
 			if err != nil {
@@ -86,7 +87,7 @@ func TestProveVerify(t *testing.T) {
 
 // from vrf-rs/src/tests/secp256k1_sha256_tai.rs prove()
 func TestProve(t *testing.T) {
-	vrf := vrf.NewK256VRF(0xFE)
+	vrf := vrf.NewK256VRF()
 	secretKey, err := hex.DecodeString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140")
 	if err != nil {
 		t.Fatal(err)
@@ -105,9 +106,36 @@ func TestProve(t *testing.T) {
 	assert.Equal(t, expectedPi, pi)
 }
 
+func TestProve2(t *testing.T) {
+	vrf := vrf.NewK256VRF()
+	secretKey := []byte{150, 229, 71, 204, 71, 255, 250, 29, 129, 190, 105, 149, 130, 113, 179, 159, 146, 224, 241, 118, 1, 50, 17, 61, 176, 126, 1, 20, 70, 80, 47, 9}
+	alpha := []byte{102, 54, 56, 49, 51, 50, 52, 50, 97, 54, 48, 55, 102, 98, 52, 53, 49, 56, 57, 52, 97, 52, 49, 48, 57, 99, 51, 102, 50, 51, 52, 99, 54, 50, 57, 57, 98, 56, 100, 101, 51, 54, 101, 49, 51, 99, 52, 52, 50, 50, 54, 49, 54, 100, 49, 100, 55, 53, 98, 54, 57, 54, 101, 57, 1, 0, 0, 0, 14, 220, 255, 5, 42, 20, 251, 176, 88, 255, 255}
+	pi, err := vrf.Prove(secretKey, alpha)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedPi := []byte{3, 168, 116, 196, 45, 247, 147, 126, 145, 86, 209, 210, 81, 98, 241, 107, 38, 187, 38, 174, 78, 34, 134, 29, 192, 83, 63, 132, 74, 74, 146, 201, 62, 19, 172, 159, 36, 46, 182, 244, 90, 173, 222, 244, 204, 190, 95, 161, 103, 0, 84, 244, 143, 179, 160, 182, 226, 165, 89, 166, 39, 206, 67, 68, 141, 170, 137, 0, 59, 152, 194, 81, 62, 230, 164, 32, 74, 55, 35, 10, 132}
+	assert.Equal(t, expectedPi, pi)
+
+	gamma, c, s, err := vrf.DecodeProof(pi)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(gamma)
+	fmt.Println(c)
+	fmt.Println(s)
+
+	hash, err := vrf.ProofToHash(pi)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(hash)
+}
+
 // from vrf-rs/src/tests/secp256k1_sha256_tai.rs verify()
 func TestVerify(t *testing.T) {
-	vrf := vrf.NewK256VRF(0xFE)
+	vrf := vrf.NewK256VRF()
 	publicKey, err := hex.DecodeString("032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645")
 	if err != nil {
 		t.Fatal(err)
@@ -132,7 +160,7 @@ func TestVerify(t *testing.T) {
 
 // from vrf-rs/src/tests/secp256k1_sha256_tai.rs decode_proof()
 func TestDecodeProof(t *testing.T) {
-	vrf := vrf.NewK256VRF(0xFE)
+	vrf := vrf.NewK256VRF()
 	pi, err := hex.DecodeString("035b5c726e8c0e2c488a107c600578ee75cb702343c153cb1eb8dec77f4b5071b4a53f0a46f018bc2c56e58d383f2305e0975972c26feea0eb122fe7893c15af376b33edf7de17c6ea056d4d82de6bc02f")
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +191,7 @@ func TestDecodeProof(t *testing.T) {
 
 // from vrf-rs/src/tests/secp256k1_sha256_tai.rs encode_to_curve_tai()
 func TestSecp256k1Sha256TaiEncodeToCurve2(t *testing.T) {
-	vrf := vrf.NewK256VRF(0xFE)
+	vrf := vrf.NewK256VRF()
 	publicKey, err := hex.DecodeString("032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645")
 	if err != nil {
 		t.Fatal(err)

@@ -49,6 +49,10 @@ func (v VRFStruct) Prove(secretKey, alpha []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	// paddingSize := v.PtLen - v.CLen // TO-DO PtLen vs CFieldBytesSize
+	// paddedCScalar := make([]byte, paddingSize)
+	// paddedCScalar = append(paddedCScalar, cScalar...)
+
 	// Step 7: s = (k + c*x) mod q
 	mul := v.ScalarMul(cScalar, secretKey)
 	sScalar := v.ScalarAdd(mul, kScalar)

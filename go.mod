@@ -3,6 +3,7 @@ module github.com/sedaprotocol/vrf-go
 go 1.19
 
 require (
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1
 	github.com/ethereum/go-ethereum v1.13.4
 	github.com/stretchr/testify v1.8.4
 )
