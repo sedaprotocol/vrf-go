@@ -108,7 +108,9 @@ func (v VRFStruct) EncodeToCurveTAI(encodeToCurveSalt, alpha []byte) (*AffinePoi
 // Spec: `interpret_hash_value_as_a_point(s) = sring_to_point(0x02 || s)` (section 5.5).
 func (v VRFStruct) tryHashToPoint(data []byte) (*AffinePoint, error) {
 	concatenatedData := append([]byte{0x02}, data...)
-	return v.UnmarshalCompressed(concatenatedData)
+	point := new(AffinePoint)
+	err := point.UnmarshalCompressed(concatenatedData)
+	return point, err
 }
 
 func (v VRFStruct) gammaToHash(point *AffinePoint) ([]byte, error) {
@@ -123,7 +125,7 @@ func (v VRFStruct) gammaToHash(point *AffinePoint) ([]byte, error) {
 	var data []byte
 	data = append(data, v.SuiteID)
 	data = append(data, proofToHashDSTFront)
-	data = append(data, v.MarshalCompressed(point)...)
+	data = append(data, point.Bytes()...)
 	data = append(data, proofToHashDSTBack)
 	return v.Hash(data), nil
 }

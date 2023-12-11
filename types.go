@@ -6,7 +6,7 @@ import (
 	"hash"
 	"math/big"
 
-	secp2 "github.com/decred/dcrd/dcrec/secp256k1/v4"
+	scalar "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 )
 
@@ -18,6 +18,22 @@ const proofToHashDSTBack uint8 = 0x00
 
 type AffinePoint struct {
 	X, Y *big.Int
+}
+
+// UnmarshalCompressed parses an array of bytes in the 33-byte compressed
+// format into a point in the curve and sets p to it.
+func (p *AffinePoint) UnmarshalCompressed(data []byte) error {
+	p.X, p.Y = secp256k1.DecompressPubkey(data)
+	if p.X == nil {
+		return errors.New("failed to unmarshal bytes to an elliptic curve point")
+	}
+	return nil
+}
+
+// Bytes converts the (x,y) coordinate of a point in the curve
+// into the compressed form specified in SEC 1, Version 2.0, Section 2.3.3.
+func (p AffinePoint) Bytes() []byte {
+	return secp256k1.CompressPubkey(p.X, p.Y)
 }
 
 type VRFStruct struct {
@@ -51,8 +67,7 @@ func (v VRFStruct) Hash(hashInput []byte) []byte {
 	return hashString
 }
 
-// TO-DO Compare with ecdsa.HashToInt(k)
-// from https://go.dev/src/crypto/ecdsa/ecdsa_legacy.go
+// Taken from https://go.dev/src/crypto/ecdsa/ecdsa_legacy.go
 // HashToInt converts a hash value to an integer. Per FIPS 186-4, Section 6.4,
 // we use the left-most bits of the hash to match the bit-length of the order of
 // the curve. This also performs Step 5 of SEC 1, Version 2.0, Section 4.1.3.
@@ -71,67 +86,54 @@ func (v VRFStruct) HashToInt(hash []byte) *big.Int {
 	return ret
 }
 
-// AffineAdd returns a+b.
+// AffineAdd adds two affine points and returns the resulting
+// affine point.
 func (v VRFStruct) AffineAdd(a, b *AffinePoint) *AffinePoint {
 	result := new(AffinePoint)
 	result.X, result.Y = v.curve.Add(a.X, a.Y, b.X, b.Y)
 	return result
 }
 
-// AffineAdd returns a-b.
+// AffineAdd subtracts the second affine point from the first
+// and returns the resultings affine point.
 func (v VRFStruct) AffineSub(a, b *AffinePoint) *AffinePoint {
 	result := new(AffinePoint)
 	result.X, result.Y = v.curve.Add(a.X, a.Y, b.X, new(big.Int).Neg(b.Y))
 	return result
 }
 
-func (v VRFStruct) ScalarBaseMult(scalar []byte) *AffinePoint {
+// ScalarBasePointMult multiplies the base point by a scalar and
+// returns the resulting affine point.
+func (v VRFStruct) ScalarBasePointMult(scalar []byte) *AffinePoint {
 	result := new(AffinePoint)
 	result.X, result.Y = v.curve.ScalarBaseMult(scalar)
 	return result
 }
 
-func (v VRFStruct) ScalarMult(point *AffinePoint, scalar []byte) *AffinePoint {
+// ScalarAffinePointMult multiplies an affine point by a scalar and
+// returns the resulting affine point.
+func (v VRFStruct) ScalarAffinePointMult(point *AffinePoint, scalar []byte) *AffinePoint {
 	result := new(AffinePoint)
 	result.X, result.Y = v.curve.ScalarMult(point.X, point.Y, scalar)
 	return result
 }
 
-func (v VRFStruct) ScalarMul(a, b []byte) []byte {
-	aScalar := new(secp2.ModNScalar)
-	aScalar.SetByteSlice(a)
-
-	bScalar := new(secp2.ModNScalar)
-	bScalar.SetByteSlice(b)
-
-	res := aScalar.Mul(bScalar).Bytes()
-	return res[:]
-}
-
+// ScalarAdd adds two scalars and returns the resulting scalar.
 func (v VRFStruct) ScalarAdd(a, b []byte) []byte {
-	aScalar := new(secp2.ModNScalar)
+	aScalar, bScalar := new(scalar.ModNScalar), new(scalar.ModNScalar)
 	aScalar.SetByteSlice(a)
-
-	bScalar := new(secp2.ModNScalar)
 	bScalar.SetByteSlice(b)
 
-	res := aScalar.Add(bScalar).Bytes()
-	return res[:]
+	result := aScalar.Add(bScalar).Bytes()
+	return result[:]
 }
 
-// UnmarshalCompressed parses an array of bytes in the 33-byte compressed
-// format into a point in the curve.
-func (v VRFStruct) UnmarshalCompressed(data []byte) (*AffinePoint, error) {
-	ap := new(AffinePoint)
-	ap.X, ap.Y = secp256k1.DecompressPubkey(data)
-	if ap.X == nil {
-		return nil, errors.New("failed to unmarshal bytes to an elliptic curve point")
-	}
-	return ap, nil
-}
+// ScalarMult multiplies two scalars and returns the resulting scalar.
+func (v VRFStruct) ScalarMult(a, b []byte) []byte {
+	aScalar, bScalar := new(scalar.ModNScalar), new(scalar.ModNScalar)
+	aScalar.SetByteSlice(a)
+	bScalar.SetByteSlice(b)
 
-// MarshalCompressed converts the (x,y) coordinate of a point in the curve
-// into the compressed form specified in SEC 1, Version 2.0, Section 2.3.3.
-func (v VRFStruct) MarshalCompressed(point *AffinePoint) []byte {
-	return secp256k1.CompressPubkey(point.X, point.Y)
+	result := aScalar.Mul(bScalar).Bytes()
+	return result[:]
 }

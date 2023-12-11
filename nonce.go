@@ -8,28 +8,19 @@ import (
 	"math/big"
 )
 
-/// Deterministically generate ephemeral scalar `k`.
-
-// TO-DO remove test?
-func (v VRFStruct) GenerateNonce(secret_key []byte, digest_msg []byte) []byte {
-	test := func(*big.Int) bool { return true }
-	return generateSecret(v.N(), v.HashToInt(secret_key), sha256.New, digest_msg, test)
+// GenerateNonce deterministically generates ephemeral scalar `k`.
+func (v VRFStruct) GenerateNonce(secretKey []byte, digest []byte) []byte {
+	// TO-DO generalize to other hash algos
+	return generateSecret(v.N(), v.HashToInt(secretKey), sha256.New, digest)
 }
 
-// q
-// x = secret_key
-// alg
-// hash = h = digest_msg
-// test
-
 // Taken from https://github.com/codahale/rfc6979/blob/master/rfc6979.go
-
 // https://tools.ietf.org/html/rfc6979#section-3.2
-func generateSecret(q, x *big.Int, alg func() hash.Hash, hash []byte, test func(*big.Int) bool) []byte {
+func generateSecret(q, x *big.Int, alg func() hash.Hash, digest []byte) []byte {
 	qlen := q.BitLen()
 	holen := alg().Size()
 	rolen := (qlen + 7) >> 3
-	bx := append(int2octets(x, rolen), bits2octets(hash, q, qlen, rolen)...)
+	bx := append(int2octets(x, rolen), bits2octets(digest, q, qlen, rolen)...)
 
 	// Step B
 	v := bytes.Repeat([]byte{0x01}, holen)
@@ -62,7 +53,7 @@ func generateSecret(q, x *big.Int, alg func() hash.Hash, hash []byte, test func(
 
 		// Step H3
 		secret := bits2int(t, qlen)
-		if secret.Cmp(one) >= 0 && secret.Cmp(q) < 0 && test(secret) {
+		if secret.Cmp(one) >= 0 && secret.Cmp(q) < 0 {
 			return t
 		}
 		k = mac(alg, k, append(v, 0x00), k)

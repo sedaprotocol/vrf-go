@@ -201,7 +201,7 @@ func TestSecp256k1Sha256TaiEncodeToCurve2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compressedPoint := vrf.MarshalCompressed(point)
+	compressedPoint := point.Bytes()
 
 	expectedPoint, err := hex.DecodeString("0221ceb1ce22cd34d8b73a619164ed64e917ca31fd454075d02e4bdfa9c5ce0b48")
 	if err != nil {

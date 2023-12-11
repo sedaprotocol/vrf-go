@@ -9,19 +9,19 @@ import (
 // Spec: `ECVRF_prove` function (section 5.1).
 func (v VRFStruct) Prove(secretKey, alpha []byte) ([]byte, error) {
 	// Step 1: derive public key from secret key as `Y = x * B`
-	publicKeyPoint := v.ScalarBaseMult(secretKey)
-	publicKeyBytes := v.MarshalCompressed(publicKeyPoint)
+	publicKeyPoint := v.ScalarBasePointMult(secretKey)
+	publicKeyBytes := publicKeyPoint.Bytes()
 
 	// Step 2: Encode to curve (using TAI)
 	hPoint, err := v.EncodeToCurveTAI(publicKeyBytes, alpha)
 	if err != nil {
 		return nil, err
 	}
-	hBytes := v.MarshalCompressed(hPoint)
+	hBytes := hPoint.Bytes()
 
 	// Step 4: Gamma = x * H
-	gammaPoint := v.ScalarMult(hPoint, secretKey)
-	gammaBytes := v.MarshalCompressed(gammaPoint)
+	gammaPoint := v.ScalarAffinePointMult(hPoint, secretKey)
+	gammaBytes := gammaPoint.Bytes()
 
 	// Step 5: nonce (k generation)
 	digest := v.Hash(hBytes)
@@ -29,12 +29,12 @@ func (v VRFStruct) Prove(secretKey, alpha []byte) ([]byte, error) {
 
 	// Step 6: c = ECVRF_challenge_generation (Y, H, Gamma, U, V)
 	// U = k*B
-	uPoint := v.ScalarBaseMult(kScalar)
-	uBytes := v.MarshalCompressed(uPoint)
+	uPoint := v.ScalarBasePointMult(kScalar)
+	uBytes := uPoint.Bytes()
 
 	// V = k*H
-	vPoint := v.ScalarMult(hPoint, kScalar)
-	vBytes := v.MarshalCompressed(vPoint)
+	vPoint := v.ScalarAffinePointMult(hPoint, kScalar)
+	vBytes := vPoint.Bytes()
 
 	// Challenge generation (returns hash output truncated by `cLen`)
 	var input []byte
@@ -54,7 +54,7 @@ func (v VRFStruct) Prove(secretKey, alpha []byte) ([]byte, error) {
 	// paddedCScalar = append(paddedCScalar, cScalar...)
 
 	// Step 7: s = (k + c*x) mod q
-	mul := v.ScalarMul(cScalar, secretKey)
+	mul := v.ScalarMult(cScalar, secretKey)
 	sScalar := v.ScalarAdd(mul, kScalar)
 
 	// Step 8: encode (gamma, c, s)
@@ -70,7 +70,8 @@ func (v VRFStruct) Prove(secretKey, alpha []byte) ([]byte, error) {
 // Spec: `ECVRF_verify` function (section 5.3).
 func (v VRFStruct) Verify(publicKey, pi, alpha []byte) ([]byte, error) {
 	// Step 1-2: Y = string_to_point(PK_string)
-	publicKeyPoint, err := v.UnmarshalCompressed(publicKey)
+	publicKeyPoint := new(AffinePoint)
+	err := publicKeyPoint.UnmarshalCompressed(publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +88,8 @@ func (v VRFStruct) Verify(publicKey, pi, alpha []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	gammaPoint, err := v.UnmarshalCompressed(gamma)
+	gammaPoint := new(AffinePoint)
+	err = gammaPoint.UnmarshalCompressed(gamma)
 	if err != nil {
 		return nil, err
 	}
@@ -97,25 +99,25 @@ func (v VRFStruct) Verify(publicKey, pi, alpha []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	hBytes := v.MarshalCompressed(hPoint)
+	hBytes := hPoint.Bytes()
 
 	// Step 8: U = s*B - c*Y
-	sB := v.ScalarBaseMult(sScalar)
-	cY := v.ScalarMult(publicKeyPoint, cScalar)
+	sB := v.ScalarBasePointMult(sScalar)
+	cY := v.ScalarAffinePointMult(publicKeyPoint, cScalar)
 	uPoint := v.AffineSub(sB, cY)
-	uBytes := v.MarshalCompressed(uPoint)
+	uBytes := uPoint.Bytes()
 
 	// Step 9: V = s*H - c*Gamma
-	sH := v.ScalarMult(hPoint, sScalar)
-	cGamma := v.ScalarMult(gammaPoint, cScalar)
+	sH := v.ScalarAffinePointMult(hPoint, sScalar)
+	cGamma := v.ScalarAffinePointMult(gammaPoint, cScalar)
 	vPoint := v.AffineSub(sH, cGamma)
-	vBytes := v.MarshalCompressed(vPoint)
+	vBytes := vPoint.Bytes()
 
 	// Step 10: c' = ECVRF_challenge_generation(Y, H, Gamma, U, V)
 	var input []byte
 	input = append(input, publicKey...)
 	input = append(input, hBytes...)
-	input = append(input, v.MarshalCompressed(gammaPoint)...)
+	input = append(input, gammaPoint.Bytes()...)
 	input = append(input, uBytes...)
 	input = append(input, vBytes...)
 
@@ -140,7 +142,8 @@ func (v VRFStruct) ProofToHash(pi []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	gammaPoint, err := v.UnmarshalCompressed(gamma)
+	gammaPoint := new(AffinePoint)
+	err = gammaPoint.UnmarshalCompressed(gamma)
 	if err != nil {
 		return nil, err
 	}
